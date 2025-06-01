@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Test Runs - PTAF Platform{% endblock %}
+{% block content %}
+<h1>Test Runs</h1>
+
+<form method="post" action="{{ url_for('main.ui_create_test_run') }}">
+    <h3>Start New Test Run</h3>
+    <div class="form-group">
+        <label for="agent_id">Select Agent:</label>
+        <select id="agent_id" name="agent_id" required>
+            <option value="">-- Select Agent --</option>
+            {% for agent in agents %}
+            <option value="{{ agent.id }}">{{ agent.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="environment_id">Select Stored Environment Configuration:</label>
+        <select id="environment_id" name="environment_id" required>
+            <option value="">-- Select Environment --</option>
+            {% for env in environments %}
+            <option value="{{ env.id }}">{{ env.name }} ({{ env.docker_image }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <input type="submit" value="Start Test Run">
+</form>
+
+<h2>Existing Test Runs</h2>
+{% if test_runs %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Agent</th>
+                <th>Environment</th>
+                <th>Target URL</th>
+                <th>Container</th>
+                <th>Status</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in test_runs %}
+            <tr>
+                <td>{{ run.id }}</td>
+                <td>{{ run.agent_name }}</td>
+                <td>{{ run.environment_name }}</td>
+                <td><a href="{{ run.target_url }}" target="_blank">{{ run.target_url }}</a></td>
+                <td>{{ run.active_container_name }}</td>
+                <td>{{ run.status }}</td>
+                <td>{{ run.start_time if run.start_time else 'N/A' }}</td>
+                <td>{{ run.end_time if run.end_time else 'N/A' }}</td>
+                <td><a href="{{ url_for('main.ui_test_run_detail', run_id=run.id) }}" class="button-link">View Details</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No test runs found.</p>
+{% endif %}
+{% endblock %}

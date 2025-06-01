@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Welcome - PTAF Platform{% endblock %}
+{% block content %}
+<h1>Welcome to the AI Penetration Testing Assessment Platform (PTAF)</h1>
+<p>This platform allows you to manage test environments, agents, and execute penetration testing assessments using AI agents.</p>
+<p>Use the navigation bar above to explore different sections of the platform.</p>
+<h2>Quick Links:</h2>
+<ul>
+    <li><a href="{{ url_for('main.ui_environments') }}" class="button-link">Manage Environments</a></li>
+    <li><a href="{{ url_for('main.ui_agents') }}" class="button-link">Manage Agents</a></li>
+    <li><a href="{{ url_for('main.ui_test_runs') }}" class="button-link">View & Start Test Runs</a></li>
+</ul>
+{% endblock %}

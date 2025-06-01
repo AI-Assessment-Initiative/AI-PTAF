@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{% block title %}PTAF Platform{% endblock %}</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        nav { background-color: #333; padding: 10px 0; text-align: center; margin-bottom: 20px; }
+        nav a { color: white; margin: 0 15px; text-decoration: none; font-weight: bold; }
+        nav a:hover { text-decoration: underline; }
+        .container { background-color: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, input[type="text"], input[type="submit"], button { padding: 10px; border-radius: 3px; border: 1px solid #ccc; }
+        input[type="submit"], button { background-color: #5cb85c; color: white; cursor: pointer; }
+        input[type="submit"]:hover, button:hover { background-color: #4cae4c; }
+        .message { padding: 10px; margin-bottom: 15px; border-radius: 3px; }
+        .message.success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6; }
+        .message.error { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
+        .button-link { display: inline-block; padding: 8px 12px; background-color: #007bff; color: white; text-decoration: none; border-radius: 3px; }
+        .button-link:hover { background-color: #0056b3; }
+        pre { background-color: #eee; padding: 10px; border-radius: 3px; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('main.ui_index') }}">Home</a>
+        <a href="{{ url_for('main.ui_environments') }}">Environments</a>
+        <a href="{{ url_for('main.ui_agents') }}">Agents</a>
+        <a href="{{ url_for('main.ui_test_runs') }}">Test Runs</a>
+    </nav>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

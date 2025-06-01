@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Manage Environments - PTAF Platform{% endblock %}
+{% block content %}
+<h1>Test Environments</h1>
+
+<h2>Available Deployable Applications (from Orchestrator)</h2>
+{% if available_apps %}
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Docker Image</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            {% for app in available_apps %}
+            <tr>
+                <td>{{ app.name }}</td>
+                <td>{{ app.image_name }}</td>
+                <td>{{ app.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No deployable applications listed by the orchestrator.</p>
+{% endif %}
+
+<h2>Stored Environment Configurations (from Database)</h2>
+<form method="post" action="{{ url_for('main.ui_create_stored_environment') }}">
+    <h3>Add New Stored Environment Configuration</h3>
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+    </div>
+    <div class="form-group">
+        <label for="docker_image">Docker Image:</label>
+        <input type="text" id="docker_image" name="docker_image" required placeholder="e.g., vulhub/dvwa">
+    </div>
+    <div class="form-group">
+        <label for="description">Description:</label>
+        <input type="text" id="description" name="description">
+    </div>
+    <input type="submit" value="Add Configuration">
+</form>
+
+{% if stored_envs %}
+    <h3>Existing Configurations</h3>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Docker Image</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            {% for env in stored_envs %}
+            <tr>
+                <td>{{ env.id }}</td>
+                <td>{{ env.name }}</td>
+                <td>{{ env.docker_image }}</td>
+                <td>{{ env.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No stored environment configurations found in the database.</p>
+{% endif %}
+{% endblock %}

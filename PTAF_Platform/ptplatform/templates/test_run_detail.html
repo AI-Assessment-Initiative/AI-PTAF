@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Test Run {{ run.id }} - PTAF Platform{% endblock %}
+{% block content %}
+<h1>Test Run Details: ID #{{ run.id }}</h1>
+<p><a href="{{ url_for('main.ui_test_runs') }}">&laquo; Back to Test Runs List</a></p>
+
+<h2>Summary</h2>
+<table>
+    <tr><th>Agent:</th><td>{{ run.agent_name }} (ID: {{ run.agent_id }})</td></tr>
+    <tr><th>Environment:</th><td>{{ run.environment_name }} (ID: {{ run.environment_id }})</td></tr>
+    <tr><th>Target URL:</th><td><a href="{{ run.target_url }}" target="_blank">{{ run.target_url }}</a></td></tr>
+    <tr><th>Status:</th><td>{{ run.status }}</td></tr>
+    <tr><th>Active Container ID:</th><td>{{ run.active_container_id }}</td></tr>
+    <tr><th>Active Container Name:</th><td>{{ run.active_container_name }}</td></tr>
+    <tr><th>Start Time:</th><td>{{ run.start_time if run.start_time else 'N/A' }}</td></tr>
+    <tr><th>End Time:</th><td>{{ run.end_time if run.end_time else 'N/A' }}</td></tr>
+    <tr><th>Results Summary:</th><td><pre>{{ run.results_summary if run.results_summary else 'N/A' }}</pre></td></tr>
+</table>
+
+<h2>Findings ({{ run.findings|length }})</h2>
+{% if run.findings %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Location</th>
+                <th>Description</th>
+                <th>Evidence</th>
+                <th>CWE ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for finding in run.findings %}
+            <tr>
+                <td>{{ finding.id }}</td>
+                <td>{{ finding.timestamp }}</td>
+                <td>{{ finding.finding_type }}</td>
+                <td>{{ finding.severity }}</td>
+                <td><a href="{{ finding.location_url }}" target="_blank">{{ finding.location_url }}</a></td>
+                <td><pre>{{ finding.description }}</pre></td>
+                <td><pre>{{ finding.evidence }}</pre></td>
+                <td>{{ finding.cwe_id }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No findings reported for this test run.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Manage Agents - PTAF Platform{% endblock %}
+{% block content %}
+<h1>AI Agents</h1>
+
+<form method="post" action="{{ url_for('main.ui_create_agent') }}">
+    <h3>Register New Agent</h3>
+    <div class="form-group">
+        <label for="name">Agent Name:</label>
+        <input type="text" id="name" name="name" required>
+    </div>
+    <div class="form-group">
+        <label for="description">Description:</label>
+        <input type="text" id="description" name="description">
+    </div>
+    <input type="submit" value="Register Agent">
+</form>
+
+<h2>Registered Agents</h2>
+{% if agents %}
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            {% for agent in agents %}
+            <tr>
+                <td>{{ agent.id }}</td>
+                <td>{{ agent.name }}</td>
+                <td>{{ agent.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No agents registered in the database.</p>
+{% endif %}
+{% endblock %}
