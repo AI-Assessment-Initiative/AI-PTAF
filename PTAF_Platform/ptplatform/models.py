@@ -1,5 +1,6 @@
 from .app import db
 import datetime
+import uuid # Import the uuid module
 
 class TestEnvironment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -20,7 +21,8 @@ class Agent(db.Model):
 
 class Finding(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    test_run_id = db.Column(db.Integer, db.ForeignKey('test_run.id'), nullable=False)
+    # Change test_run_id to String to match TestRun.id (UUID)
+    test_run_id = db.Column(db.String(36), db.ForeignKey('test_run.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     finding_type = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)
@@ -35,7 +37,8 @@ class Finding(db.Model):
         return f'<Finding {self.id} - {self.finding_type} for TestRun {self.test_run_id}>'
 
 class TestRun(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    # Change id to String(36) for UUID, with a default UUID generator
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     agent_id = db.Column(db.Integer, db.ForeignKey('agent.id'), nullable=False)
     environment_id = db.Column(db.Integer, db.ForeignKey('test_environment.id'), nullable=False)
     start_time = db.Column(db.DateTime, default=datetime.datetime.utcnow)
@@ -44,7 +47,6 @@ class TestRun(db.Model):
     results_summary = db.Column(db.Text, nullable=True)
     target_url = db.Column(db.String(500), nullable=True)
 
-    # New fields for active container instance for this run
     active_container_id = db.Column(db.String(255), nullable=True)
     active_container_name = db.Column(db.String(255), nullable=True)
 
