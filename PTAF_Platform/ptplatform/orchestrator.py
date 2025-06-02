@@ -5,49 +5,26 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Initialize Docker client
 try:
     logger.info("Attempting to connect to Docker via docker.from_env().")
     client = docker.from_env()
-    if not client.ping():
-        raise docker.errors.DockerException("client.ping() returned False with from_env()")
+    # Perform a quick test to see if it's working
+    if not client.ping(): # client.ping() returns True on success, raises on failure
+        logger.error("client.ping() returned False after docker.from_env(). This should not happen if from_env() succeeded without error.")
+        raise docker.errors.DockerException("client.ping() failed after connection via from_env()")
     logger.info("Successfully connected to Docker via docker.from_env().")
 except Exception as e:
-    logger.warning(f"Failed to connect via docker.from_env(): {e!r}", exc_info=True) # Added exc_info here too
-    client = None
-    if platform.system() == "Windows":
-        logger.info("Attempting to connect to Docker via known Windows named pipes...")
-        named_pipes_to_try = [
-            'npipe:////./pipe/dockerDesktopLinuxEngine',
-            'npipe:////./pipe/docker_engine'
-        ]
-        for pipe in named_pipes_to_try:
-            try:
-                logger.info(f"Attempting connection via named pipe: {pipe}")
-                # Increased timeout and will log detailed error for this specific attempt
-                temp_client = docker.DockerClient(base_url=pipe, timeout=10)
-                logger.info(f"Pinging Docker daemon at {pipe}...")
-                if not temp_client.ping():
-                    logger.warning(f"Ping to {pipe} returned False/None.")
-                    raise docker.errors.DockerException(f"client.ping() returned False/None with {pipe}")
-                client = temp_client
-                logger.info(f"Successfully connected to Docker via named pipe: {pipe}")
-                break
-            except Exception as pipe_e:
-                # Log the full exception for this specific pipe attempt
-                logger.error(f"Detailed error connecting via {pipe}: {pipe_e!r}", exc_info=True)
-                client = None # Ensure client is None if this attempt failed
-
-        if not client:
-            logger.error("Failed to connect via all known Windows named pipes.")
-            # This is the exception the user saw last
-            raise docker.errors.DockerException(
-                "Could not connect to Docker daemon on Windows. Please ensure Docker Desktop is running and accessible, "
-                "and that the named pipes are available if not using default from_env(). "
-                "Check logs for detailed errors from individual pipe connection attempts."
-            )
-    else:
-        logger.error(f"docker.from_env() failed on non-Windows OS ({platform.system()}). Ensure Docker is configured correctly and accessible: {e!r}", exc_info=True)
-        raise docker.errors.DockerException(f"Failed to connect to Docker on {platform.system()} via from_env(): {e!r}")
+    logger.error(f"Failed to connect to Docker via docker.from_env(): {e!r}", exc_info=True)
+    # Set client to None or raise a more specific error to be handled by calling code or at app startup
+    # For now, if this fails, subsequent Docker operations will fail.
+    # Consider a more graceful way to handle this at application startup if Docker is essential.
+    client = None # Functions below will check for this
+    # Alternatively, re-raise to prevent app from starting/continuing if Docker is critical
+    raise docker.errors.DockerException(
+        f"Could not connect to Docker daemon using docker.from_env(). "
+        f"Please ensure Docker is running and accessible. Error: {e!r}"
+    )
 
 
 def list_vulnerable_apps():
@@ -59,7 +36,6 @@ def start_environment(image_name, instance_name_prefix="ptaf_env_"):
     try:
         logger.info(f"Attempting to pull image: {image_name}")
         if not client:
-            # This custom message might be more helpful if the above initialization failed
             logger.error("Cannot start environment: Docker client is not initialized. See previous connection errors.")
             raise docker.errors.DockerException("Docker client not initialized. Check connection logs.")
 
@@ -185,12 +161,17 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
 
     logger.info("Orchestrator script direct execution started.")
-    if not client: # This check will now happen after the robust initialization logic
+    # The client initialization logic is now at the top of the file.
+    # The 'client' variable will either be a working client or this script would have exited
+    # if the raise docker.errors.DockerException was not commented out.
+    # For direct script testing, if client is None, the functions will raise exceptions.
+    if not client:
         logger.error("Docker client failed to initialize after all attempts. Exiting example usage.")
     else:
         logger.info("Docker client initialized successfully for direct execution.")
         logger.info("Available Vulnerable App Images:")
         apps = list_vulnerable_apps()
+        # ... (rest of the if __name__ == '__main__' block remains similar) ...
         for app_info in apps:
             logger.info(f"- {app_info['name']} (Image: {app_info['image_name']})")
 
