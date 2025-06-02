@@ -1,70 +1,67 @@
 import docker
 import time
-import platform # Import platform module
-import logging # It's good practice to log these attempts
+import platform
+import logging
 
 logger = logging.getLogger(__name__)
 
-# Attempt to initialize Docker client with fallback for Windows
 try:
     logger.info("Attempting to connect to Docker via docker.from_env().")
     client = docker.from_env()
-    # Perform a quick test to see if it's working
-    if not client.ping(): # client.ping() returns True on success, raises on failure
+    if not client.ping():
         raise docker.errors.DockerException("client.ping() returned False with from_env()")
     logger.info("Successfully connected to Docker via docker.from_env().")
 except Exception as e:
-    logger.warning(f"Failed to connect via docker.from_env(): {e}")
-    client = None # Ensure client is None before trying alternatives
+    logger.warning(f"Failed to connect via docker.from_env(): {e!r}", exc_info=True) # Added exc_info here too
+    client = None
     if platform.system() == "Windows":
         logger.info("Attempting to connect to Docker via known Windows named pipes...")
         named_pipes_to_try = [
-            'npipe:////./pipe/dockerDesktopLinuxEngine', # For Docker Desktop with WSL2
-            'npipe:////./pipe/docker_engine'           # For Docker Engine or older Docker Desktop
+            'npipe:////./pipe/dockerDesktopLinuxEngine',
+            'npipe:////./pipe/docker_engine'
         ]
         for pipe in named_pipes_to_try:
             try:
                 logger.info(f"Attempting connection via named pipe: {pipe}")
-                temp_client = docker.DockerClient(base_url=pipe, timeout=5) # Lower timeout for faster checks
+                # Increased timeout and will log detailed error for this specific attempt
+                temp_client = docker.DockerClient(base_url=pipe, timeout=10)
+                logger.info(f"Pinging Docker daemon at {pipe}...")
                 if not temp_client.ping():
-                    raise docker.errors.DockerException(f"client.ping() returned False with {pipe}")
-                client = temp_client # Assign to the main client variable
+                    logger.warning(f"Ping to {pipe} returned False/None.")
+                    raise docker.errors.DockerException(f"client.ping() returned False/None with {pipe}")
+                client = temp_client
                 logger.info(f"Successfully connected to Docker via named pipe: {pipe}")
-                break # Stop if successful
+                break
             except Exception as pipe_e:
-                logger.warning(f"Failed to connect via {pipe}: {pipe_e}")
+                # Log the full exception for this specific pipe attempt
+                logger.error(f"Detailed error connecting via {pipe}: {pipe_e!r}", exc_info=True)
+                client = None # Ensure client is None if this attempt failed
 
         if not client:
             logger.error("Failed to connect via all known Windows named pipes.")
+            # This is the exception the user saw last
             raise docker.errors.DockerException(
-                "Could not connect to Docker daemon on Windows. "
-                "Please ensure Docker Desktop is running and accessible, "
-                "and that the named pipes are available if not using default from_env()."
+                "Could not connect to Docker daemon on Windows. Please ensure Docker Desktop is running and accessible, "
+                "and that the named pipes are available if not using default from_env(). "
+                "Check logs for detailed errors from individual pipe connection attempts."
             )
-    else: # For non-Windows, if from_env fails, re-raise the original error or a more generic one
-        logger.error(f"docker.from_env() failed on non-Windows OS ({platform.system()}). Ensure Docker is configured correctly and accessible.")
-        # Re-raising the original exception 'e' preserves its specific type and message
-        raise docker.errors.DockerException(f"Failed to connect to Docker on {platform.system()} via from_env(): {e}")
+    else:
+        logger.error(f"docker.from_env() failed on non-Windows OS ({platform.system()}). Ensure Docker is configured correctly and accessible: {e!r}", exc_info=True)
+        raise docker.errors.DockerException(f"Failed to connect to Docker on {platform.system()} via from_env(): {e!r}")
 
 
 def list_vulnerable_apps():
-    # In the future, this could list images based on some tagging convention or from the database
-    # For now, it's a hardcoded list of what we plan to support initially.
     return [
         {"name": "DVWA", "image_name": "vulhub/dvwa", "description": "Damn Vulnerable Web Application"},
-        # {"name": "OWASP Juice Shop", "image_name": "bkimminich/juice-shop", "description": "OWASP Juice Shop"} # Add later
     ]
 
 def start_environment(image_name, instance_name_prefix="ptaf_env_"):
-    """
-    Starts a new container for the given docker image.
-    Returns the container object and the port it's running on.
-    """
     try:
         logger.info(f"Attempting to pull image: {image_name}")
-        # Ensure client is available
         if not client:
-            raise docker.errors.DockerException("Docker client not initialized.")
+            # This custom message might be more helpful if the above initialization failed
+            logger.error("Cannot start environment: Docker client is not initialized. See previous connection errors.")
+            raise docker.errors.DockerException("Docker client not initialized. Check connection logs.")
 
         client.images.pull(image_name)
         logger.info(f"Image {image_name} pulled successfully or already exists.")
@@ -106,28 +103,25 @@ def start_environment(image_name, instance_name_prefix="ptaf_env_"):
     except docker.errors.ImageNotFound:
         logger.error(f"Docker image {image_name} not found.")
         return None, None
-    except docker.errors.DockerException as e: # Catch DockerException explicitly
-        logger.error(f"Docker operation error: {e}", exc_info=True) # exc_info=True for stack trace in log
-        # Attempt to cleanup if container started but something else went wrong
+    except docker.errors.DockerException as e:
+        logger.error(f"Docker operation error in start_environment: {e!r}", exc_info=True)
         try:
-            if 'container' in locals() and container and hasattr(container, 'stop'): # Check if container object exists and has stop method
+            if 'container' in locals() and container and hasattr(container, 'stop'):
                 container.stop()
                 container.remove()
-        except Exception as cleanup_e: # Broad exception for cleanup attempt
-            logger.error(f"Error during cleanup of container after failure: {cleanup_e}", exc_info=True)
+        except Exception as cleanup_e:
+            logger.error(f"Error during cleanup of container after failure in start_environment: {cleanup_e!r}", exc_info=True)
         return None, None
-    except Exception as e: # Catch any other unexpected errors
-        logger.error(f"Unexpected error in start_environment: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Unexpected error in start_environment: {e!r}", exc_info=True)
         return None, None
 
 
 def stop_environment(container_id_or_name):
-    """
-    Stops and removes a container.
-    """
     try:
         if not client:
-            raise docker.errors.DockerException("Docker client not initialized.")
+            logger.error("Cannot stop environment: Docker client is not initialized.")
+            raise docker.errors.DockerException("Docker client not initialized. Check connection logs.")
         container = client.containers.get(container_id_or_name)
         logger.info(f"Stopping container {container.short_id} ({container.name})...")
         container.stop()
@@ -138,20 +132,18 @@ def stop_environment(container_id_or_name):
     except docker.errors.NotFound:
         logger.warning(f"Container {container_id_or_name} not found for stopping.")
         return False
-    except docker.errors.DockerException as e: # Catch DockerException explicitly
-        logger.error(f"Docker API Error while stopping/removing {container_id_or_name}: {e}", exc_info=True)
+    except docker.errors.DockerException as e:
+        logger.error(f"Docker API Error while stopping/removing {container_id_or_name}: {e!r}", exc_info=True)
         return False
-    except Exception as e: # Catch any other unexpected errors
-        logger.error(f"Unexpected error in stop_environment for {container_id_or_name}: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Unexpected error in stop_environment for {container_id_or_name}: {e!r}", exc_info=True)
         return False
 
 def get_running_environment_details(container_id_or_name):
-    """
-    Gets details of a running container, including its mapped host port.
-    """
     try:
         if not client:
-            raise docker.errors.DockerException("Docker client not initialized.")
+            logger.error("Cannot get details: Docker client is not initialized.")
+            raise docker.errors.DockerException("Docker client not initialized. Check connection logs.")
         container = client.containers.get(container_id_or_name)
         container.reload()
 
@@ -182,21 +174,19 @@ def get_running_environment_details(container_id_or_name):
     except docker.errors.NotFound:
         logger.warning(f"Container {container_id_or_name} not found for getting details.")
         return None
-    except docker.errors.DockerException as e: # Catch DockerException explicitly
-        logger.error(f"Docker API Error getting details for {container_id_or_name}: {e}", exc_info=True)
+    except docker.errors.DockerException as e:
+        logger.error(f"Docker API Error getting details for {container_id_or_name}: {e!r}", exc_info=True)
         return None
-    except Exception as e: # Catch any other unexpected errors
-        logger.error(f"Unexpected error in get_running_environment_details for {container_id_or_name}: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Unexpected error in get_running_environment_details for {container_id_or_name}: {e!r}", exc_info=True)
         return None
 
-# Example Usage (for testing orchestrator.py directly)
 if __name__ == '__main__':
-    # Basic logging for direct script execution
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
 
     logger.info("Orchestrator script direct execution started.")
-    if not client:
-        logger.error("Docker client failed to initialize. Exiting example usage.")
+    if not client: # This check will now happen after the robust initialization logic
+        logger.error("Docker client failed to initialize after all attempts. Exiting example usage.")
     else:
         logger.info("Docker client initialized successfully for direct execution.")
         logger.info("Available Vulnerable App Images:")
@@ -214,13 +204,11 @@ if __name__ == '__main__':
 
             if container_obj and access_url:
                 logger.info(f"Successfully started {chosen_app_image} with ID {container_obj.short_id} accessible at {access_url}")
-
                 details = get_running_environment_details(container_obj.id)
                 if details:
                     logger.info("\nContainer Details:")
                     for key, value in details.items():
                         logger.info(f"  {key}: {value}")
-
                 logger.info(f"\nStopping {container_obj.short_id} in 10 seconds...")
                 time.sleep(10)
                 stop_environment(container_obj.id)
